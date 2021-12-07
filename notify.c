@@ -4,7 +4,7 @@
  *
  *    Copyright (C) 2021 Cledson Ferreira
  *
- *    This program is free software: you can redistribute it and/or modify
+ *    Notify for BatService is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
  *    the Free Software Foundation, either version 3 of the License, or
  *    (at your option) any later version.
@@ -24,7 +24,7 @@
 #include <string.h>
 #include <sys/stat.h>
 
-#include "clib/s.h"
+#include "strash/s.h"
 
 #define LOG_SIZE_MAX 30000
 #define LOG_LINES_TO_DEL 1700
