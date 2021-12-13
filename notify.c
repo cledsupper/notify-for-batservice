@@ -113,7 +113,7 @@ void finalize(int r) {
 
 void send_message(const cstring_t msg) {
   if (!TERMUX_API) {
-    if (SUPPRESS_LOGS) printf("STATUS: %s\n", msg);
+    if (SUPPRESS_LOGS) printf("ALERTA: %s\n", msg);
     return;
   }
 
@@ -138,9 +138,9 @@ void send_status(const cstring_t msg) {
 
   string_t * btn, * lib = S(s_newc(LIB));
   if (get_charging_never_stop() == 1)
-    btn = S(s_newc("▶️"));
+    btn = S(s_newc("ᐅ"));
   else
-    btn = S(s_newc("⏹"));
+    btn = S(s_newc("□"));
 
   system(S(s_builderv(
     S(s_newc("termux-notification -i batservice --ongoing --alert-once ")),
@@ -268,6 +268,7 @@ int main(int args, cstring_t arg[]) {
     if (log_line->arr[0] == '#') {
       if (!strncmp(log_line->arr+1, "upd ", 4)) {
         send_message(log_line->arr+5);
+        printf("ALERTA: %s\n", log_line->arr+5);
         ign=1;
       }
       else ign=2;
