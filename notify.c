@@ -148,7 +148,7 @@ void send_status(const cstring_t msg) {
     S(s_newc("' --button1 '")), btn,
     S(s_newc("' --button1-action 'DATA_FIX=\"")), S(s_newc(DATA)), S(s_newc("\" LIB_FIX=\"")), S(s_newc(LIB)), S(s_newc("\" sh ")),
     lib, S(s_newc("/notify.sh force-charge' ")),
-    S(s_newc("--button2 '❎' --button2-action 'DATA_FIX=\"")), S(s_newc(DATA)), S(s_newc("\" LIB_FIX=\"")), S(s_newc(LIB)), S(s_newc("\" sh ")),
+    S(s_newc("--button2 'X' --button2-action 'DATA_FIX=\"")), S(s_newc(DATA)), S(s_newc("\" LIB_FIX=\"")), S(s_newc(LIB)), S(s_newc("\" sh ")),
     lib, S(s_newc("/notify.sh quit'")),
     NULL
   ))->arr);
