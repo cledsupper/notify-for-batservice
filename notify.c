@@ -338,7 +338,7 @@ int get_charging_never_stop() {
     s_res(key, line->size-1);
     sscanf(line->arr, "%s", key->arr);
     s_trim(key);
-    if (!strcmp(key->arr, "charging-never-stop")) {
+    if (!strcmp(key->arr, "charge-never-stop")) {
       string_t * value = S(s_new(line->size - key->size));
       sscanf(line->arr + key->size, "%s", value->arr);
       r = 0;
