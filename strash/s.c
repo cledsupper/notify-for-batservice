@@ -36,7 +36,7 @@ string_t * s_new(int len) {
   return s;
 }
 
-string_t * s_newc(const cstring_t str) {
+string_t * s_from(const cstring_t str) {
   string_t * s = s_new(strlen(str));
   strcpy(s->arr, str);
   return s;
@@ -58,7 +58,7 @@ void s_free(string_t * s) {
   free(s);
 }
 
-string_t * s_trim(string_t * s) {
+string_t * s_refresh(string_t * s) {
   s->size = strlen(s->arr)+1;
   s->arr = le_resize(s->arr, s->size);
   return s;
@@ -66,6 +66,7 @@ string_t * s_trim(string_t * s) {
 
 string_t * s_mount(string_t * s, cstring_t str) {
   if (s->arr == str) return s;
+  if (!str) return s_res(s, 0);
   free(s->arr);
   s->arr = str;
   s->size = strlen(str) + 1;
@@ -80,13 +81,6 @@ cstring_t s_umount(string_t * s) {
   return str;
 }
 
-cstring_t s_tocstr(string_t * s) {
-  cstring_t arr = s->arr;
-  s->arr = le_new(char, s->size);
-  strcpy(s->arr, arr);
-  return arr;
-}
-
 string_t * s_setc(string_t * s, const cstring_t str) {
   s_res(s, strlen(str));
   strcpy(s->arr, str);
@@ -97,6 +91,13 @@ string_t * s_dup(const string_t * co) {
   string_t * dup = s_new(co->size-1);
   strcpy(dup->arr, co->arr);
   return dup;
+}
+
+cstring_t s_dupc(string_t * s) {
+  cstring_t arr = s->arr;
+  s->arr = le_new(char, s->size);
+  strcpy(s->arr, arr);
+  return arr;
 }
 
 string_t * s_fline(string_t * s, FILE * f) {
@@ -117,7 +118,7 @@ string_t * s_add(string_t * dest, const string_t * base) {
   int blen = base->size-1;
 
   s_res(dest, dlen+blen);
-  strcat(dest->arr, base->arr);
+  strcpy(dest->arr+dlen, base->arr);
 
   return dest;
 }
@@ -154,7 +155,7 @@ int S_tmp_size() {
   return _stmp_s;
 }
 
-string_t * S_forget(string_t * s) {
+string_t * S_recover(string_t * s) {
   int i;
   for (i = _stmp_s-1; i >= 0; --i)
     if (_stmp[i] == s) {

@@ -49,9 +49,9 @@ void init() {
   cstring_t NO_PERMS = getenv("NO_PERMS");
   if (NO_PERMS) {
     TERMUX_API = getenv("TERMUX_API") ? 1 : 0;
-    lib = S(s_newc(getenv("LIB")));
-    data = S(s_newc(getenv("DATA")));
-    cache = S(s_newc(getenv("CACHE")));
+    lib = S(s_from(getenv("LIB")));
+    data = S(s_from(getenv("DATA")));
+    cache = S(s_from(getenv("CACHE")));
   }
   else {
     if (check_termux_api()) TERMUX_API = 1;
@@ -62,14 +62,14 @@ void init() {
       exit(1);
     }
 
-    string_t * prefix = S(s_newc(PREFIX));
+    string_t * prefix = S(s_from(PREFIX));
 
     lib = S(s_builderv(
-      prefix, S(s_newc("/lib/batservice")), NULL
+      prefix, S(s_from("/lib/batservice")), NULL
     ));
 
     data = S(s_builderv(
-      prefix, S(s_newc("/etc/batservice")), NULL
+      prefix, S(s_from("/etc/batservice")), NULL
     ));
 
     cstring_t HOME = getenv("HOME");
@@ -78,24 +78,24 @@ void init() {
       finalize(1);
     }
     cache = S(s_builderv(
-      S(s_newc(HOME)), S(s_newc("/.cache/BatService")), NULL
+      S(s_from(HOME)), S(s_from("/.cache/BatService")), NULL
     ));
   }
 
   LIB = s_umount(lib);
-  DATA = s_tocstr(data);
+  DATA = s_dupc(data);
 
-  string_t * data_config = S(s_builderv(data, S(s_newc("/config.txt")), NULL));
-  string_t * exit_file = S(s_builderv(data, S(s_newc("/exit.err")), NULL));
-  DATA_CONFIG = s_tocstr(data_config);
-  EXIT_FILE = s_tocstr(exit_file);
+  string_t * data_config = S(s_builderv(data, S(s_from("/config.txt")), NULL));
+  string_t * exit_file = S(s_builderv(data, S(s_from("/exit.err")), NULL));
+  DATA_CONFIG = s_dupc(data_config);
+  EXIT_FILE = s_dupc(exit_file);
 
   system(S(s_builderv(
-    S(s_newc("mkdir -p \"")), cache, S(s_newc("\"")), NULL
+    S(s_from("mkdir -p \"")), cache, S(s_from("\"")), NULL
   ))->arr);
 
-  string_t * cache_file = S(s_builderv(cache, S(s_newc("/out.log")), NULL));
-  CACHE_FILE = s_tocstr(cache_file);
+  string_t * cache_file = S(s_builderv(cache, S(s_from("/out.log")), NULL));
+  CACHE_FILE = s_dupc(cache_file);
 
   S_tmp_free();
 }
@@ -119,8 +119,8 @@ void send_message(const cstring_t msg) {
 
   system(
     S(s_builderv(
-      S(s_newc("termux-toast 'BatService: ")), S(s_newc(msg)),
-      S(s_newc("'")),
+      S(s_from("termux-toast 'BatService: ")), S(s_from(msg)),
+      S(s_from("'")),
       NULL
     ))->arr
   );
@@ -136,20 +136,20 @@ void send_status(const cstring_t msg) {
     return;
   }
 
-  string_t * btn, * lib = S(s_newc(LIB));
+  string_t * btn, * lib = S(s_from(LIB));
   if (get_charging_never_stop() == 1)
-    btn = S(s_newc("ᐅ"));
+    btn = S(s_from("ᐅ"));
   else
-    btn = S(s_newc("□"));
+    btn = S(s_from("□"));
 
   system(S(s_builderv(
-    S(s_newc("termux-notification -i batservice --ongoing --alert-once ")),
-    S(s_newc("--icon battery_std -t 'Status do serviço' -c '")), S(s_newc(msg)),
-    S(s_newc("' --button1 '")), btn,
-    S(s_newc("' --button1-action 'DATA_FIX=\"")), S(s_newc(DATA)), S(s_newc("\" LIB_FIX=\"")), S(s_newc(LIB)), S(s_newc("\" sh ")),
-    lib, S(s_newc("/notify.sh force-charge' ")),
-    S(s_newc("--button2 'X' --button2-action 'DATA_FIX=\"")), S(s_newc(DATA)), S(s_newc("\" LIB_FIX=\"")), S(s_newc(LIB)), S(s_newc("\" sh ")),
-    lib, S(s_newc("/notify.sh quit'")),
+    S(s_from("termux-notification -i batservice --ongoing --alert-once ")),
+    S(s_from("--icon battery_std -t 'Status do serviço' -c '")), S(s_from(msg)),
+    S(s_from("' --button1 '")), btn,
+    S(s_from("' --button1-action 'DATA_FIX=\"")), S(s_from(DATA)), S(s_from("\" LIB_FIX=\"")), S(s_from(LIB)), S(s_from("\" sh ")),
+    lib, S(s_from("/notify.sh force-charge' ")),
+    S(s_from("--button2 'X' --button2-action 'DATA_FIX=\"")), S(s_from(DATA)), S(s_from("\" LIB_FIX=\"")), S(s_from(LIB)), S(s_from("\" sh ")),
+    lib, S(s_from("/notify.sh quit'")),
     NULL
   ))->arr);
   S_tmp_free();
@@ -168,13 +168,13 @@ struct status_type {
 void notify_status(status_t status) {
   string_t * p;
   if (!strcmp(status.status->arr, "Not charging") || !strcmp(status.status->arr, "Charging"))
-    p = S(s_builderv(S(s_newc(" % (🔌 ")), s_num(status.current), S(s_newc(" mA) ⚡ ")), NULL));
+    p = S(s_builderv(S(s_from(" % (🔌 ")), s_num(status.current), S(s_from(" mA) ⚡ ")), NULL));
   else
-    p = S(s_newc(" % ⚡ "));
+    p = S(s_from(" % ⚡ "));
 
   string_t * statustxt = S(s_builderv(
-    S(s_newc("🔋 ")), s_num(status.percent), p, s_num(status.voltage),
-    S(s_newc(" mV 🌡 ")), s_num(status.temp), S(s_newc(" ºC")), NULL
+    S(s_from("🔋 ")), s_num(status.percent), p, s_num(status.voltage),
+    S(s_from(" mV 🌡 ")), s_num(status.temp), S(s_from(" ºC")), NULL
   ));
 
   send_status(statustxt->arr);
@@ -291,7 +291,7 @@ int main(int args, cstring_t arg[]) {
         *p = 0;
         p = q + (p - status.status->arr) + 1;
         while (!isalnum(*p) && *p != '-') ++p;
-        s_trim(status.status);
+        s_refresh(status.status);
 
         sscanf(p, "%d", &status.current);
         p += s_num(status.current)->size + 3;
@@ -337,7 +337,7 @@ int get_charging_never_stop() {
   while (s_fline(line, cfg)->size > 1) {
     s_res(key, line->size-1);
     sscanf(line->arr, "%s", key->arr);
-    s_trim(key);
+    s_refresh(key);
     if (!strcmp(key->arr, "charge-never-stop")) {
       string_t * value = S(s_new(line->size - key->size));
       sscanf(line->arr + key->size, "%s", value->arr);

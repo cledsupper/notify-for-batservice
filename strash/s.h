@@ -35,21 +35,21 @@ struct string_type {
 
 string_t * s_new(int len);
 
-string_t * s_newc(const cstring_t str);
+string_t * s_from(const cstring_t str);
 
 string_t * s_res(string_t * s, int len);
 
 void s_free(string_t * s);
 
-string_t * s_trim(string_t * s);
+string_t * s_refresh(string_t * s);
 
 string_t * s_mount(string_t * s, cstring_t str);
 
 cstring_t s_umount(string_t * s);
 
-cstring_t s_tocstr(string_t * s);
-
 string_t * s_setc(string_t * s, const cstring_t str);
+
+cstring_t s_dupc(string_t * s);
 
 string_t * s_fline(string_t * s, FILE * f);
 
@@ -61,7 +61,7 @@ void S_tmp_free();
 
 int S_tmp_size();
 
-string_t * Steal(string_t * s);
+string_t * S_recover(string_t * s);
 
 string_t * S(string_t * s);
 
