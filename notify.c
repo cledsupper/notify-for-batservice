@@ -18,7 +18,6 @@
  *    along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
-#define _GNU_SOURCE
 #include <ctype.h>
 #include <pthread.h>
 #include <signal.h>
@@ -77,13 +76,18 @@ void init() {
 
     string_t * prefix = S(s_from(PREFIX));
 
-    lib = S(s_builderv(
-      prefix, S(s_from("/lib/batservice")), NULL
-    ));
-
-    data = S(s_builderv(
-      prefix, S(s_from("/etc/batservice")), NULL
-    ));
+    if (!getenv("LIB_FIX")) {
+      lib = S(s_builderv(
+        prefix, S(s_from("/lib/batservice")), NULL
+      ));
+      data = S(s_builderv(
+        prefix, S(s_from("/etc/batservice")), NULL
+      ));
+    }
+    else {
+      lib = S(s_from(getenv("LIB_FIX")));
+      data = S(s_from(getenv("DATA_FIX")));
+    }
 
     char * HOME = getenv("HOME");
     if (!HOME) {
@@ -129,7 +133,9 @@ void finalize(int r) {
 }
 
 static void * do_system(void * cmd) {
-  return (void*)(long long) system((const char *)cmd);
+  system((const char *) cmd);
+  sig_to_kill_thread = true;
+  return NULL;
 }
 
 void spawn_and_kill(const char * cmd) {
@@ -140,7 +146,7 @@ void spawn_and_kill(const char * cmd) {
   pthread_create(&td, NULL, do_system, (void *) cmd);
 
   for (tl=7; tl > 0; --tl) {
-    if (!pthread_tryjoin_np(td, &ret))
+    if (sig_to_kill_thread)
       break;
     sleep(1);
   }
@@ -148,22 +154,37 @@ void spawn_and_kill(const char * cmd) {
   if (!tl) {
     sig_to_kill_thread = true;
     pthread_kill(td, SIGTERM);
-    pthread_join(td, &ret);
-    sig_to_kill_thread = false;
   }
+  pthread_join(td, &ret);
+  sig_to_kill_thread = false;
 }
 
 void send_toast(const char * msg) {
-  if (!TERMUX_API) {
-    if (SUPPRESS_LOGS) printf("ALERTA: %s\n", msg);
+  printf("ALERTA: %s\n", msg);
+  if (!TERMUX_API)
     return;
-  }
 
   spawn_and_kill(
     S(s_builderv(
       S(s_from("termux-toast 'BatService: ")), S(s_from(msg)),
       S(s_from("'")),
       NULL
+    ))->arr
+  );
+
+  S_tmp_free();
+}
+
+void send_message(const char * msg) {
+  printf("MENSAGEM: %s\n", msg);
+  if (!TERMUX_API)
+    return;
+
+  spawn_and_kill(
+    S(s_builderv(
+      S(s_from("termux-notification -i batservice-msg ")),
+      S(s_from("--icon battery_std -t 'Mensagem do BatService' -c '")),
+      S(s_from(msg)), S(s_from("'")), NULL
     ))->arr
   );
 
@@ -190,10 +211,11 @@ void send_status(const char * msg) {
     S(s_from("' --button1 '")), btn,
     S(s_from("' --button1-action 'DATA_FIX=\"")), S(s_from(DATA)), S(s_from("\" LIB_FIX=\"")), S(s_from(LIB)), S(s_from("\" sh ")),
     lib, S(s_from("/notify.sh force-charge' ")),
-    S(s_from("--button2 'X' --button2-action 'DATA_FIX=\"")), S(s_from(DATA)), S(s_from("\" LIB_FIX=\"")), S(s_from(LIB)), S(s_from("\" sh ")),
-    lib, S(s_from("/notify.sh quit'")),
+    S(s_from("--button2 'X' --button2-action 'DATA_FIX=\"")), S(s_from(DATA)), S(s_from("\" LIB_FIX=\"")), S(s_from(LIB)), S(s_from("\" ")),
+    lib, S(s_from("/notify quit'")),
     NULL
   ))->arr);
+
   S_tmp_free();
 }
 
@@ -280,6 +302,17 @@ int main(int args, char * arg[]) {
     if (!strcmp(arg[1], "--no-logs"))
       SUPPRESS_LOGS=true;
     else {
+      if (!strcmp(arg[1], "quit")) {
+        FILE * f_exit = fopen(EXIT_FILE, "w");
+        if (!f_exit) {
+          fprintf(stderr, "ERR: falha ao criar arquivo de saída!\n");
+          finalize(2);
+        }
+        fputs("0", f_exit);
+        fclose(f_exit);
+        send_toast("O serviço será encerrado");
+        finalize(0);
+      }
       fprintf(stderr, "ERR: não implementado!\n");
       finalize(3);
     }
@@ -308,11 +341,11 @@ int main(int args, char * arg[]) {
 
     ign=0;
     if (log_line->arr[0] == '#') {
-      if (!strncmp(log_line->arr+1, "upd ", 4)) {
+      ign=1;
+      if (!strncmp(log_line->arr+1, "upd ", 4))
         send_toast(log_line->arr+5);
-        printf("ALERTA: %s\n", log_line->arr+5);
-        ign=1;
-      }
+      else if (!strncmp(log_line->arr+1, "msg ", 4))
+        send_message(log_line->arr+5);
       else ign=2;
     }
 
