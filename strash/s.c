@@ -36,7 +36,7 @@ string_t * s_new(int len) {
   return s;
 }
 
-string_t * s_from(const cstring_t str) {
+string_t * s_from(cstring_t str) {
   string_t * s = s_new(strlen(str));
   strcpy(s->arr, str);
   return s;
@@ -64,7 +64,7 @@ string_t * s_refresh(string_t * s) {
   return s;
 }
 
-string_t * s_mount(string_t * s, cstring_t str) {
+string_t * s_mount(string_t * s, char * str) {
   if (s->arr == str) return s;
   if (!str) return s_res(s, 0);
   free(s->arr);
@@ -73,28 +73,28 @@ string_t * s_mount(string_t * s, cstring_t str) {
   return s;
 }
 
-cstring_t s_umount(string_t * s) {
-  cstring_t str = s->arr;
+char * s_umount(string_t * s) {
+  char * str = s->arr;
   s->arr = le_new(char, 1);
   s->arr[0] = 0;
   s->size = 1;
   return str;
 }
 
-string_t * s_setc(string_t * s, const cstring_t str) {
+string_t * s_setc(string_t * s, cstring_t str) {
   s_res(s, strlen(str));
   strcpy(s->arr, str);
   return s;
 }
 
-string_t * s_dup(const string_t * co) {
-  string_t * dup = s_new(co->size-1);
-  strcpy(dup->arr, co->arr);
+string_t * s_dup(const string_t * base) {
+  string_t * dup = s_new(base->size-1);
+  strcpy(dup->arr, base->arr);
   return dup;
 }
 
-cstring_t s_dupc(string_t * s) {
-  cstring_t arr = s->arr;
+char * s_dupc(string_t * s) {
+  char * arr = s->arr;
   s->arr = le_new(char, s->size);
   strcpy(s->arr, arr);
   return arr;

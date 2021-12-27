@@ -22,7 +22,7 @@
 
 #include <stdio.h>
 
-typedef char * cstring_t;
+typedef const char * cstring_t;
 typedef struct string_type string_t;
 
 #define le_new(TYPE, N)  (TYPE *) malloc(sizeof(TYPE)*(N))
@@ -35,7 +35,7 @@ struct string_type {
 
 string_t * s_new(int len);
 
-string_t * s_from(const cstring_t str);
+string_t * s_from(cstring_t str);
 
 string_t * s_res(string_t * s, int len);
 
@@ -43,13 +43,15 @@ void s_free(string_t * s);
 
 string_t * s_refresh(string_t * s);
 
-string_t * s_mount(string_t * s, cstring_t str);
+string_t * s_mount(string_t * s, char * str);
 
-cstring_t s_umount(string_t * s);
+char * s_umount(string_t * s);
 
-string_t * s_setc(string_t * s, const cstring_t str);
+string_t * s_setc(string_t * s, cstring_t str);
 
-cstring_t s_dupc(string_t * s);
+string_t * s_dup(const string_t * base);
+
+char * s_dupc(string_t * s);
 
 string_t * s_fline(string_t * s, FILE * f);
 

@@ -18,25 +18,32 @@
  *    along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#define _GNU_SOURCE
 #include <ctype.h>
-#include <stdio.h>
+#include <pthread.h>
+#include <signal.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <unistd.h>
 
 #include "strash/s.h"
 
 #define LOG_SIZE_MAX 30000
 #define LOG_LINES_TO_DEL 1700
 
-cstring_t LIB = NULL;
-cstring_t DATA = NULL;
-cstring_t DATA_CONFIG = NULL;
-cstring_t EXIT_FILE = NULL;
-cstring_t CACHE_FILE = NULL;
-int TERMUX_API = 0;
+char * LIB = NULL;
+char * DATA = NULL;
+char * DATA_CONFIG = NULL;
+char * EXIT_FILE = NULL;
+char * CACHE_FILE = NULL;
+bool TERMUX_API = false;
 
-int SUPPRESS_LOGS = 0;
+bool SUPPRESS_LOGS = false;
+
+pthread_t main_thread;
+volatile bool sig_to_kill_thread = false;
 
 static int check_termux_api() {
   return !system("termux-notification -h >/dev/null 2>&1");
@@ -44,19 +51,25 @@ static int check_termux_api() {
 
 void finalize(int r);
 
+void sigterm_action(int v) {
+  if (!sig_to_kill_thread) finalize(0);
+  if (pthread_self() != main_thread)
+    pthread_exit(NULL);
+}
+
 void init() {
   string_t * lib, * data, * cache;
-  cstring_t NO_PERMS = getenv("NO_PERMS");
+  char * NO_PERMS = getenv("NO_PERMS");
   if (NO_PERMS) {
-    TERMUX_API = getenv("TERMUX_API") ? 1 : 0;
+    TERMUX_API = getenv("TERMUX_API") ? true : false;
     lib = S(s_from(getenv("LIB")));
     data = S(s_from(getenv("DATA")));
     cache = S(s_from(getenv("CACHE")));
   }
   else {
-    if (check_termux_api()) TERMUX_API = 1;
+    if (check_termux_api()) TERMUX_API = true;
 
-    cstring_t PREFIX = getenv("PREFIX");
+    char * PREFIX = getenv("PREFIX");
     if (!PREFIX) {
       fprintf(stderr, "ERRO FATAL: PREFIX não definido!\n");
       exit(1);
@@ -72,7 +85,7 @@ void init() {
       prefix, S(s_from("/etc/batservice")), NULL
     ));
 
-    cstring_t HOME = getenv("HOME");
+    char * HOME = getenv("HOME");
     if (!HOME) {
       fprintf(stderr, "ERRO FATAL: HOME não definido!\n");
       finalize(1);
@@ -87,17 +100,21 @@ void init() {
 
   string_t * data_config = S(s_builderv(data, S(s_from("/config.txt")), NULL));
   string_t * exit_file = S(s_builderv(data, S(s_from("/exit.err")), NULL));
-  DATA_CONFIG = s_dupc(data_config);
-  EXIT_FILE = s_dupc(exit_file);
+  DATA_CONFIG = s_umount(data_config);
+  EXIT_FILE = s_umount(exit_file);
 
   system(S(s_builderv(
     S(s_from("mkdir -p \"")), cache, S(s_from("\"")), NULL
   ))->arr);
 
   string_t * cache_file = S(s_builderv(cache, S(s_from("/out.log")), NULL));
-  CACHE_FILE = s_dupc(cache_file);
+  CACHE_FILE = s_umount(cache_file);
 
   S_tmp_free();
+
+  main_thread = pthread_self();
+  signal(SIGTERM, sigterm_action);
+  signal(SIGINT, finalize);
 }
 
 void finalize(int r) {
@@ -111,13 +128,38 @@ void finalize(int r) {
   exit(r);
 }
 
-void send_message(const cstring_t msg) {
+static void * do_system(void * cmd) {
+  return (void*)(long long) system((const char *)cmd);
+}
+
+void spawn_and_kill(const char * cmd) {
+  pthread_t td;
+  int tl;
+  void * ret;
+
+  pthread_create(&td, NULL, do_system, (void *) cmd);
+
+  for (tl=7; tl > 0; --tl) {
+    if (!pthread_tryjoin_np(td, &ret))
+      break;
+    sleep(1);
+  }
+
+  if (!tl) {
+    sig_to_kill_thread = true;
+    pthread_kill(td, SIGTERM);
+    pthread_join(td, &ret);
+    sig_to_kill_thread = false;
+  }
+}
+
+void send_toast(const char * msg) {
   if (!TERMUX_API) {
     if (SUPPRESS_LOGS) printf("ALERTA: %s\n", msg);
     return;
   }
 
-  system(
+  spawn_and_kill(
     S(s_builderv(
       S(s_from("termux-toast 'BatService: ")), S(s_from(msg)),
       S(s_from("'")),
@@ -130,7 +172,7 @@ void send_message(const cstring_t msg) {
 
 int get_charging_never_stop();
 
-void send_status(const cstring_t msg) {
+void send_status(const char * msg) {
   if (!TERMUX_API) {
     if (SUPPRESS_LOGS) printf("STATUS: %s\n", msg);
     return;
@@ -142,7 +184,7 @@ void send_status(const cstring_t msg) {
   else
     btn = S(s_from("□"));
 
-  system(S(s_builderv(
+  spawn_and_kill(S(s_builderv(
     S(s_from("termux-notification -i batservice --ongoing --alert-once ")),
     S(s_from("--icon battery_std -t 'Status do serviço' -c '")), S(s_from(msg)),
     S(s_from("' --button1 '")), btn,
@@ -231,12 +273,12 @@ void log_cleanup() {
 }
 
 
-int main(int args, cstring_t arg[]) {
+int main(int args, char * arg[]) {
   init();
 
   if (args > 1) {
     if (!strcmp(arg[1], "--no-logs"))
-      SUPPRESS_LOGS=1;
+      SUPPRESS_LOGS=true;
     else {
       fprintf(stderr, "ERR: não implementado!\n");
       finalize(3);
@@ -267,7 +309,7 @@ int main(int args, cstring_t arg[]) {
     ign=0;
     if (log_line->arr[0] == '#') {
       if (!strncmp(log_line->arr+1, "upd ", 4)) {
-        send_message(log_line->arr+5);
+        send_toast(log_line->arr+5);
         printf("ALERTA: %s\n", log_line->arr+5);
         ign=1;
       }
@@ -275,11 +317,11 @@ int main(int args, cstring_t arg[]) {
     }
 
     if (!(ign%2) && sscanf(log_line->arr + ign, "%d", &val) > 0) {
-      cstring_t p = log_line->arr + ign + s_num(val)->size;
+      char * p = log_line->arr + ign + s_num(val)->size;
 
       while (!isgraph(*p) && *p) ++p;
       if (*p == '%') {
-        cstring_t q;
+        char * q;
         // 45 % (Discharging) 500 mA 3815 mV 29 °C
         status.percent = val;
         do { ++p; } while (!isalnum(*p));
