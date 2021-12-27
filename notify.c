@@ -19,7 +19,6 @@
  */
 
 #include <ctype.h>
-#include <pthread.h>
 #include <signal.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -41,20 +40,12 @@ bool TERMUX_API = false;
 
 bool SUPPRESS_LOGS = false;
 
-pthread_t main_thread;
-volatile bool sig_to_kill_thread = false;
 
 static int check_termux_api() {
   return !system("termux-notification -h >/dev/null 2>&1");
 }
 
 void finalize(int r);
-
-void sigterm_action(int v) {
-  if (!sig_to_kill_thread) finalize(0);
-  if (pthread_self() != main_thread)
-    pthread_exit(NULL);
-}
 
 void init() {
   string_t * lib, * data, * cache;
@@ -115,10 +106,6 @@ void init() {
   CACHE_FILE = s_umount(cache_file);
 
   S_tmp_free();
-
-  main_thread = pthread_self();
-  signal(SIGTERM, sigterm_action);
-  signal(SIGINT, finalize);
 }
 
 void finalize(int r) {
@@ -128,35 +115,39 @@ void finalize(int r) {
   if (EXIT_FILE) free(EXIT_FILE);
   if (CACHE_FILE) free(CACHE_FILE);
   S_tmp_free();
-
   exit(r);
 }
 
-static void * do_system(void * cmd) {
-  system((const char *) cmd);
-  sig_to_kill_thread = true;
-  return NULL;
-}
 
-void spawn_and_kill(const char * cmd) {
-  pthread_t td;
+void spawn_and_kill(char * cmd) {
+  int child_id;
   int tl;
-  void * ret;
+  FILE * fcomm;
+  char comm[18];
 
-  pthread_create(&td, NULL, do_system, (void *) cmd);
+  string_t * sh;
+  char * argv[] = { "sh", "-c", cmd, NULL };
 
-  for (tl=7; tl > 0; --tl) {
-    if (sig_to_kill_thread)
-      break;
+  sh = S(s_builderv(
+    S(s_from(getenv("PREFIX"))),
+    S(s_from("/bin/sh")),
+    NULL
+  ));
+
+  child_id = fork();
+  if (!child_id)
+    execv(sh->arr, argv);
+
+  sprintf(comm, "/proc/%d/comm", child_id);
+  for (tl=7; tl; --tl) {
+    fcomm = fopen(comm, "r");
+    if (!fcomm) break;
+    fclose(fcomm);
     sleep(1);
   }
+  if (!tl)  kill(child_id, SIGTERM);
 
-  if (!tl) {
-    sig_to_kill_thread = true;
-    pthread_kill(td, SIGTERM);
-  }
-  pthread_join(td, &ret);
-  sig_to_kill_thread = false;
+  S_tmp_free();
 }
 
 void send_toast(const char * msg) {
@@ -171,8 +162,6 @@ void send_toast(const char * msg) {
       NULL
     ))->arr
   );
-
-  S_tmp_free();
 }
 
 void send_message(const char * msg) {
@@ -187,8 +176,6 @@ void send_message(const char * msg) {
       S(s_from(msg)), S(s_from("'")), NULL
     ))->arr
   );
-
-  S_tmp_free();
 }
 
 int get_charging_never_stop();
@@ -215,8 +202,6 @@ void send_status(const char * msg) {
     lib, S(s_from("/notify quit'")),
     NULL
   ))->arr);
-
-  S_tmp_free();
 }
 
 typedef struct status_type status_t;
