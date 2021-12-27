@@ -244,6 +244,9 @@ int main(int args, cstring_t arg[]) {
   }
 
   if (!SUPPRESS_LOGS) freopen(CACHE_FILE, "a", stdout);
+#ifdef BTDROID
+  else freopen("/dev/null", "w", stdout);
+#endif
 
   string_t * log_line = s_new(0);
   status_t status = { s_new(0), 0, 0, 0, 0 };
