@@ -123,7 +123,6 @@ void spawn_and_kill(char * cmd) {
   int child_id;
   int tl;
   FILE * fcomm;
-  char comm[18];
 
   string_t * sh;
   char * argv[] = { "sh", "-c", cmd, NULL };
@@ -137,15 +136,7 @@ void spawn_and_kill(char * cmd) {
   child_id = fork();
   if (!child_id)
     execv(sh->arr, argv);
-
-  sprintf(comm, "/proc/%d/comm", child_id);
-  for (tl=7; tl; --tl) {
-    fcomm = fopen(comm, "r");
-    if (!fcomm) break;
-    fclose(fcomm);
-    sleep(1);
-  }
-  if (!tl)  kill(child_id, SIGTERM);
+  else signal(SIGCHLD, SIG_IGN);
 
   S_tmp_free();
 }
