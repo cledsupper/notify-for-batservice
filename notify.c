@@ -133,10 +133,11 @@ void spawn_and_kill(char * cmd) {
     NULL
   ));
 
+  signal(SIGCHLD, SIG_IGN);
+
   child_id = fork();
   if (!child_id)
     execv(sh->arr, argv);
-  else signal(SIGCHLD, SIG_IGN);
 
   S_tmp_free();
 }
