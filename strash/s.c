@@ -21,6 +21,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <threads.h>
 
 #include "s.h"
 
@@ -137,8 +138,8 @@ string_t * s_builderv(const string_t * s1, ...) {
 }
 
 
-static string_t ** _stmp = NULL;
-static int _stmp_s = 0;
+static thread_local string_t ** _stmp = NULL;
+static thread_local int _stmp_s = 0;
 
 void S_tmp_free() {
   int i;
