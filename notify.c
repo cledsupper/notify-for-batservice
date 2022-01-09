@@ -2,7 +2,7 @@
  *    Notify for BatService - a notify.sh replacement written in
  *    (almost) pure C language.
  *
- *    Copyright (C) 2021 Cledson Ferreira
+ *    Copyright (C) 2021, 2022 Cledson Ferreira
  *
  *    Notify for BatService is free software: you can redistribute it and/or modify
  *    it under the terms of the GNU General Public License as published by
