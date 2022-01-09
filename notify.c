@@ -121,11 +121,7 @@ void finalize(int r) {
 
 void spawn_and_kill(char * cmd) {
   int child_id;
-  int tl;
-  FILE * fcomm;
-
   string_t * sh;
-  char * argv[] = { "sh", "-c", cmd, NULL };
 
   sh = S(s_builderv(
     S(s_from(getenv("PREFIX"))),
@@ -136,8 +132,25 @@ void spawn_and_kill(char * cmd) {
   signal(SIGCHLD, SIG_IGN);
 
   child_id = fork();
-  if (!child_id)
+  if (!child_id) {
+    char * argv[] = { "sh", "-c", cmd, NULL };
     execv(sh->arr, argv);
+    fprintf(stderr, "ERR: Notify: erro ao executar processo!\n");
+    finalize(-1);
+  }
+  else {
+    FILE * fcomm;
+    char comm[20];
+    int tl;
+    snprintf(comm, 20, "/proc/%d/comm", child_id);
+    for (tl=7; tl > 0; --tl) {
+      fcomm = fopen(comm, "r");
+      if (!fcomm) break;
+      fclose(fcomm);
+      sleep(1);
+    }
+    // Ignorar processo conforme notify.sh
+  }
 
   S_tmp_free();
 }
@@ -296,9 +309,7 @@ int main(int args, char * arg[]) {
   }
 
   if (!SUPPRESS_LOGS) freopen(CACHE_FILE, "a", stdout);
-#ifdef BTDROID
-  else freopen("/dev/null", "w", stdout);
-#endif
+  else if (getenv("BTDROID")) freopen("/dev/null", "w", stdout);
 
   string_t * log_line = s_new(0);
   status_t status = { s_new(0), 0, 0, 0, 0 };
