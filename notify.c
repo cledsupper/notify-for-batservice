@@ -41,7 +41,7 @@ bool TERMUX_API = false;
 bool SUPPRESS_LOGS = false;
 
 
-static int check_termux_api() {
+static bool check_termux_api() {
   return !system("termux-notification -h >/dev/null 2>&1");
 }
 
@@ -57,7 +57,7 @@ void init() {
     cache = S(s_from(getenv("CACHE")));
   }
   else {
-    if (check_termux_api()) TERMUX_API = true;
+    TERMUX_API = check_termux_api();
 
     char * PREFIX = getenv("PREFIX");
     if (!PREFIX) {
